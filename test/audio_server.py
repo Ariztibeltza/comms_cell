@@ -7,6 +7,7 @@ import cryptography
 
 # https://people.csail.mit.edu/hubert/pyaudio/docs
 # https://gist.github.com/kevindoran/5428390
+# https://www.geeksforgeeks.org/python/multithreading-python-set-1
 
 ###############################################################################
 
@@ -17,21 +18,15 @@ CHUNK = 1024
 RECORD_TIME = 5
 OUT_FILE = "output.wav"
 
-HOST_MAC = "9c:29:76:c5:b8"
-HOST_PORT = 10
-SERVER_MAC = ""
-SERVER_PORT = 11
-BACKLOG = 1
-SIZE = 1024
+IP = "192.168.1.60"
+PORT = 10000
+BACKLOG = 5
+SIZE = CHUNK
 
-server = socket.socket(socket.AF_BLUETOOTH,
-                       socket.SOCK_STREAM,
-                       socket.BTPROTO_RFCOMM)
-
-client = socket.socket(socket.AF_BLUETOOTH,
-                       socket.SOCK_STREAM,
-                       socket.BTPROTO_RFCOMM)
-client.connect()
+server = socket.socket(socket.AF_INET,
+                       socket.SOCK_STREAM)
+server.bind((IP,PORT))
+server.listen(BACKLOG)
 
 micro_audio = pyaudio.PyAudio()
 micro_stream = micro_audio.open(format=FORMAT,
@@ -42,4 +37,15 @@ micro_stream = micro_audio.open(format=FORMAT,
 
 while True:
     data = micro_stream.read(CHUNK)
-    client.send(data)
+    conn, client_addr = server.accept()
+    try:
+        while True:
+            client_data = server.recv(SIZE)
+            if client_data:
+                print('Sending data back')
+                # Reproducir el audio
+            else:
+                print('No data from ', client_addr)
+            conn.sendall(data)
+    except:
+        conn.close()
