@@ -2,6 +2,8 @@ import os
 import socket
 import threading
 import pyaudio
+import json
+import cryptography
 
 # CONSTANTS ###################################################################
 
@@ -27,20 +29,29 @@ def client_handler(conn,addr):
     except:
         None
 
-def start():
+def start(ip_list):
     while True:
         conn,addr = server.accept()
-        print(f"     ~ Connection accepted")
-        CLIENT_LIST.append([conn,addr])
-        thread = threading.Thread(target=client_handler,args=(conn,addr))
-        thread.start()
+        print(f"     ~ Connection request: {conn.getsockname()[0]}")
+        if conn.getsockname()[0] in ip_list:
+            print(f"     ~ Connection accepted: {conn.getsockname()[0]}")
+            CLIENT_LIST.append([conn,addr])
+            thread = threading.Thread(target=client_handler,args=(conn,addr))
+            thread.start()
+        else:
+            print(f"     ~ Connection refused: {conn.getsockname()[0]}")
+        
 
 
 # MAIN ########################################################################
+
+f = open("./rsrcs/permission.json")
+d = json.load(f)
+f.close()
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind((SERVER_IP,SERVER_PORT))
 print(f" ~ Server: {SERVER_IP}:{SERVER_PORT}")
 server.listen()
-start()
+start(ip_list=d["client_ip"])
 
