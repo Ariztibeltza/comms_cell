@@ -14,6 +14,9 @@ SERVER_PORT = 5000
 CHUNK = 1024
 CLIENT_LIST = []
 
+# Cryptography
+KEY = b'ueoP3kd6cor-yviC8RwBgqqqkrLUQAhL85R4dQcfsyM='
+
 # FUNCTIONS ###################################################################
 
 def client_handler(conn,addr):
