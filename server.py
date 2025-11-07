@@ -1,9 +1,9 @@
 import os
 import socket
 import threading
-import pyaudio
 import json
 from cryptography.fernet import Fernet
+import random
 
 # CONSTANTS ###################################################################
 
@@ -11,20 +11,24 @@ from cryptography.fernet import Fernet
 SERVER_IP = "127.0.0.1"
 #SERVER_IP = socket.gethostbyname(socket.gethostname())
 SERVER_PORT = 5000
-CHUNK = 1024
+SERVER_CHUNK = 2048
 CLIENT_LIST = []
 
+# VARIABLES ###################################################################
+
 # Cryptography
-KEY = b'ueoP3kd6cor-yviC8RwBgqqqkrLUQAhL85R4dQcfsyM='
+key = b'ueoP3kd6cor-yviC8RwBgqqqkrLUQAhL85R4dQcfsyM='
+frameCount = random.randint(200,1000)
 
 # FUNCTIONS ###################################################################
 
 def client_handler(conn,addr):
     try:
         while True:
-            client_data = conn.recv(CHUNK)
+            client_data = conn.recv(SERVER_CHUNK)
             if client_data:
                 #print(f"    ~ Data from: {conn},{addr}")
+                #enc_data = fernet.encrypt(client_data)
                 for client in CLIENT_LIST:
                     if conn!=client[0]:
                         client[0].sendall(client_data)
@@ -47,7 +51,7 @@ def start(ip_list):
 
 
 # MAIN ########################################################################
-fernet = Fernet(KEY)
+fernet = Fernet(key)
 
 file = open("./rsrcs/enc.json","rb")
 enc = file.read()
