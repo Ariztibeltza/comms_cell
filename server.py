@@ -3,7 +3,7 @@ import socket
 import threading
 import pyaudio
 import json
-import cryptography
+from cryptography.fernet import Fernet
 
 # CONSTANTS ###################################################################
 
@@ -47,10 +47,20 @@ def start(ip_list):
 
 
 # MAIN ########################################################################
+fernet = Fernet(KEY)
 
-f = open("./rsrcs/permission.json")
-d = json.load(f)
-f.close()
+file = open("./rsrcs/enc.json","rb")
+enc = file.read()
+file.close()
+decr = fernet.decrypt(enc)
+
+tmpfile = open("./rsrcs/tmp.json","wb")
+tmpfile.write(decr)
+tmpfile.close()
+tmpfile = open("./rsrcs/tmp.json","rb")
+d = json.load(tmpfile)
+tmpfile.close()
+os.remove(path="./rsrcs/tmp.json")
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind((SERVER_IP,SERVER_PORT))
