@@ -1,11 +1,12 @@
 import os
 import socket
-import threading
 import json
 from cryptography.fernet import Fernet
-import random
+import asyncore
+import collections
 
-# CONSTANTS ###################################################################
+
+## CONSTANTS ##################################################################
 
 # Server
 SERVER_IP = "127.0.0.1"
@@ -13,44 +14,66 @@ SERVER_IP = "127.0.0.1"
 SERVER_PORT = 5000
 SERVER_CHUNK = 2048
 CLIENT_LIST = []
+CLIENT_DICT = {}
 
-# VARIABLES ###################################################################
+## VARIABLES ##################################################################
 
-# Cryptography
+# Crypto
 key = b'ueoP3kd6cor-yviC8RwBgqqqkrLUQAhL85R4dQcfsyM='
-frameCount = random.randint(200,1000)
 
-# FUNCTIONS ###################################################################
+## CLASSES ####################################################################
 
-def client_handler(conn,addr):
-    try:
-        while True:
-            client_data = conn.recv(SERVER_CHUNK)
-            if client_data:
-                #print(f"    ~ Data from: {conn},{addr}")
-                #enc_data = fernet.encrypt(client_data)
-                for client in CLIENT_LIST:
-                    if conn!=client[0]:
-                        client[0].sendall(client_data)
-                        print(f"    ~ Data sent to {client[0]},{client[1]}")
-    except:
-        None
+class remote_client(asyncore.dispatcher):
+    def __init__(self,host,socket,addr):
+        asyncore.dispatcher.__init__(self,socket)
+        self.host = host
+        self.outbox = collections.deque()
+    
+    def say(self,mssg):
+        self.outbox.append(mssg)
+    
+    def handle_read(self):
+        mssg = self.recv(SERVER_CHUNK)
+        self.host.broadcast(mssg)
+    
+    def handle_write(self):
+        if not self.outbox:
+            return
+        mssg = self.outbox.popleft()
+        self.send(mssg)
 
-def start(ip_list):
-    while True:
-        conn,addr = server.accept()
-        print(f"     ~ Connection request: {conn.getsockname()[0]}")
-        if conn.getsockname()[0] in ip_list:
-            print(f"     ~ Connection accepted: {conn.getsockname()[0]}")
-            CLIENT_LIST.append([conn,addr])
-            thread = threading.Thread(target=client_handler,args=(conn,addr))
-            thread.start()
+
+class server (asyncore.dispatcher):
+    def __init__(self,addr,port,accptd_ip_list):
+        asyncore.dispatcher.__init__(self)
+        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.bind((addr,port))
+        self.listen(0)
+        self.ip_list = accptd_ip_list
+        self.client_list = []
+        print(f"[SRV] @ {addr}:{port}")
+    
+    def handle_accept(self):
+        socket,addr = self.accept()
+        print(f"[CNr] {socket.getsockname()[0]}")
+        if socket.getsockname()[0] in self.ip_list:
+            self.client_list.append(remote_client(self,socket,addr))
+            print(f"[CNA] {socket.getsockname()[0]}")
         else:
-            print(f"     ~ Connection refused: {conn.getsockname()[0]}")
-        
+            print(f"[CNR] {socket.getsockname()[0]}")
+    
+    def handle_read(self):
+        print(f"Received mssg")
+    
+    def broadcast(self,mssg):
+        print(f"Broadcasting")
+        for client in self.client_list:
+            client.say(mssg)
 
+## FUNCTIONS ##################################################################
 
-# MAIN ########################################################################
+## MAIN #######################################################################
+
 fernet = Fernet(key)
 
 file = open("./rsrcs/enc.json","rb")
@@ -66,9 +89,7 @@ d = json.load(tmpfile)
 tmpfile.close()
 os.remove(path="./rsrcs/tmp.json")
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind((SERVER_IP,SERVER_PORT))
-print(f" ~ Server: {SERVER_IP}:{SERVER_PORT}")
-server.listen()
-start(ip_list=d["client_ip"])
-
+server(addr=SERVER_IP,
+       port=SERVER_PORT,
+       accptd_ip_list=d["client_ip"])
+asyncore.loop()

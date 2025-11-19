@@ -17,7 +17,7 @@ SERVER_PORT = 5000
 SERVER_CHUNK = 2048
 
 # Test constants
-BUTTON_PRESSED = False
+BUTTON_PRESSED = True
 
 ## VARIABLES ##################################################################
 
@@ -57,7 +57,7 @@ try:
             #print(sys.getsizeof(enc_micro_data))
             client.sendall(enc_micro_data)
         else:
-            print("     ~ Reciving")
+            #print("     ~ Reciving")
             speaker_data = client.recv(SERVER_CHUNK)
             if not speaker_data:
                 break
@@ -65,7 +65,7 @@ try:
                 enc_speaker_data = fernet.decrypt(speaker_data)
                 speaker_stream.write(enc_speaker_data)
             except:
-                print("Error in reception")
+                print("[ERR] Error in decription")
 except OSError:                                      
     None
 finally:
