@@ -46,7 +46,7 @@ class Client(socket.socket):
                       output=True,
                       frames_per_buffer=self.audio_chunk)
         self.fernet = Fernet(key)
-        self.b_pressed = True
+        self.b_pressed = False
     
     def log(self,code,txt):
         print(f"[{code}] {txt}")

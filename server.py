@@ -1,9 +1,10 @@
 import os
-import socket
+import select
 import json
 from cryptography.fernet import Fernet
-import asyncore
-import collections
+import socketserver
+import queue
+import pickle
 
 
 ## CONSTANTS ##################################################################
@@ -23,73 +24,90 @@ key = b'ueoP3kd6cor-yviC8RwBgqqqkrLUQAhL85R4dQcfsyM='
 
 ## CLASSES ####################################################################
 
-class remote_client(asyncore.dispatcher):
-    def __init__(self,host,socket,addr):
-        asyncore.dispatcher.__init__(self,socket)
-        self.host = host
-        self.outbox = collections.deque()
+class CustomServer(socketserver.ThreadingTCPServer):
+    def __init__(self,addr,accptd_ip_list,request_handler_class):
+        super().__init__(server_address=addr,
+                         RequestHandlerClass=request_handler_class)
+        self.accptd_ip_list = accptd_ip_list
+        self.clients = set()
+        print(f"[SRV] @ {addr}")
     
-    def say(self,mssg):
-        self.outbox.append(mssg)
+    def add_client(self,client):
+        # Ensure the client is in the range we are willing to get
+        self.log("CLr",f"{client}")
+        self.clients.add(client)
     
-    def handle_read(self):
-        mssg = self.recv(SERVER_CHUNK)
-        self.host.broadcast(mssg)
-    
-    def handle_write(self):
-        if not self.outbox:
-            return
-        mssg = self.outbox.popleft()
-        self.send(mssg)
+    def broadcast(self,source,data):
+        for client in tuple(self.clients):
+            if client is not source:
+                #print("~ Writing in buffer")
+                #client.schedule(data)
+                client.request.sendall(data)
 
+    def remove_client(self,client):
+        self.clients.remove(client)
 
-class server (asyncore.dispatcher):
-    def __init__(self,addr,port,accptd_ip_list):
-        asyncore.dispatcher.__init__(self)
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.bind((addr,port))
-        self.listen(0)
-        self.ip_list = accptd_ip_list
-        self.client_list = []
-        print(f"[SRV] @ {addr}:{port}")
+    def log(self,code,txt):
+        print(f"[{code}] {txt}")
+
+class CustomHandler(socketserver.BaseRequestHandler):
+
+    def setup(self):
+        self.server.add_client(self)
+        self.buffer = queue.Queue()
     
-    def handle_accept(self):
-        socket,addr = self.accept()
-        print(f"[CNr] {socket.getsockname()[0]}")
-        if socket.getsockname()[0] in self.ip_list:
-            self.client_list.append(remote_client(self,socket,addr))
-            print(f"[CNA] {socket.getsockname()[0]}")
-        else:
-            print(f"[CNR] {socket.getsockname()[0]}")
+    def handle(self):
+        try:
+            while True:
+                data = self.request.recv(2048)     #SERVER_CHUNK
+                if data:
+                    self.server.broadcast(self,data)
+                #self.empty_buffers()
+        except (ConnectionResetError, EOFError):
+            print("[ERR]")
+            pass
     
-    def handle_read(self):
-        print(f"Received mssg")
+    #def empty_buffers(self):
+        #print(self,"-",self.buffer.empty())
+        #while not self.buffer.empty():
+            #print(" ~ Sending data")
+            #self.request.sendall(self.buffer.get())
     
-    def broadcast(self,mssg):
-        print(f"Broadcasting")
-        for client in self.client_list:
-            client.say(mssg)
+    #def schedule(self,data):
+        #print("~ Writing in buffer")
+        #self.buffer.put(data)
+
+    def finish(self):
+        self.server.remove_client(self)
+        self.request.close()
+        #super().finish()
 
 ## FUNCTIONS ##################################################################
 
+def main(key):
+    fernet = Fernet(key)
+
+    file = open("./rsrcs/enc.json","rb")
+    enc = file.read()
+    file.close()
+    decr = fernet.decrypt(enc)
+
+    tmpfile = open("./rsrcs/tmp.json","wb")
+    tmpfile.write(decr)
+    tmpfile.close()
+    tmpfile = open("./rsrcs/tmp.json","rb")
+    d = json.load(tmpfile)
+    tmpfile.close()
+    os.remove(path="./rsrcs/tmp.json")
+
+    ip_list = d["client_ip"]
+
+    server = CustomServer(addr=(SERVER_IP,SERVER_PORT),
+                          accptd_ip_list=ip_list,
+                          request_handler_class=CustomHandler)
+    
+    server.serve_forever()
+
 ## MAIN #######################################################################
 
-fernet = Fernet(key)
-
-file = open("./rsrcs/enc.json","rb")
-enc = file.read()
-file.close()
-decr = fernet.decrypt(enc)
-
-tmpfile = open("./rsrcs/tmp.json","wb")
-tmpfile.write(decr)
-tmpfile.close()
-tmpfile = open("./rsrcs/tmp.json","rb")
-d = json.load(tmpfile)
-tmpfile.close()
-os.remove(path="./rsrcs/tmp.json")
-
-server(addr=SERVER_IP,
-       port=SERVER_PORT,
-       accptd_ip_list=d["client_ip"])
-asyncore.loop()
+main(key)
