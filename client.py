@@ -21,11 +21,13 @@ BUTTON_PRESSED = True
 
 ## VARIABLES ##################################################################
 
+# Cryptography
 key = b'ueoP3kd6cor-yviC8RwBgqqqkrLUQAhL85R4dQcfsyM='
 
 ## CLASSES ####################################################################
 
 class Client(socket.socket):
+
     def __init__(self,addr,port,key):
         super().__init__(socket.AF_INET,socket.SOCK_STREAM)
         self.connect((addr,port))
@@ -45,14 +47,12 @@ class Client(socket.socket):
                       rate=self.rate,
                       output=True,
                       frames_per_buffer=self.audio_chunk)
-        self.fernet = Fernet(key)
+        self.key = key
+        self.fernet = Fernet(self.key)
         self.b_pressed = True
     
     def log(self,code,txt):
         print(f"[{code}] {txt}")
-    
-    def feedback(self):
-        self.log("ERR","Sending error")
 
     def loop(self):
         while True:

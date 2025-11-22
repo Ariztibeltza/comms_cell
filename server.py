@@ -1,11 +1,9 @@
 import os
-import select
 import json
 from cryptography.fernet import Fernet
 import socketserver
-import queue
-import pickle
-
+import random
+import sys
 
 ## CONSTANTS ##################################################################
 
@@ -19,30 +17,40 @@ CLIENT_DICT = {}
 
 ## VARIABLES ##################################################################
 
-# Crypto
+# Cryptography
 key = b'ueoP3kd6cor-yviC8RwBgqqqkrLUQAhL85R4dQcfsyM='
 
 ## CLASSES ####################################################################
 
 class CustomServer(socketserver.ThreadingTCPServer):
-    def __init__(self,addr,accptd_ip_list,request_handler_class):
+    def __init__(self,addr,accptd_ip_list,request_handler_class,key):
         super().__init__(server_address=addr,
                          RequestHandlerClass=request_handler_class)
         self.accptd_ip_list = accptd_ip_list
         self.clients = set()
+        self.key = key
+        self.cycle_threshold = random.randint(2000,5000)
+        self.cycles = 0
+        self.fernet = Fernet(key)
         print(f"[SRV] @ {addr}")
     
     def add_client(self,client):
         # Ensure the client is in the range we are willing to get
-        self.log("CLr",f"{client}")
-        self.clients.add(client)
+        self.log("CLr",f"{client.request.getsockname()[0]}")
+        if client.request.getsockname()[0] in self.accptd_ip_list:
+            self.log("CLA","Client accepted")
+            self.clients.add(client)
+        else:
+            self.log("CLR","Client accepted")
     
     def broadcast(self,source,data):
         for client in tuple(self.clients):
             if client is not source:
-                #print("~ Writing in buffer")
-                #client.schedule(data)
-                client.request.sendall(data)
+                client.request.send(data)
+        # self.cycles +=1
+        if self.cycles >= self.cycle_threshold:
+            # self.reencrypt()
+            None
 
     def remove_client(self,client):
         self.clients.remove(client)
@@ -50,11 +58,20 @@ class CustomServer(socketserver.ThreadingTCPServer):
     def log(self,code,txt):
         print(f"[{code}] {txt}")
 
+    def reencrypt(self):
+        self.cycle_threshold = random.randint(5000,7000)
+        self.cycles = 0
+        self.log("ENC","Reencryption")
+        key = Fernet.generate_key()
+        mssg = self.fernet.encrypt(key)
+        self.key = key
+        self.fernet = Fernet(self.key)
+        self.broadcast(self,mssg)
+
 class CustomHandler(socketserver.BaseRequestHandler):
 
     def setup(self):
         self.server.add_client(self)
-        self.buffer = queue.Queue()
     
     def handle(self):
         try:
@@ -62,25 +79,13 @@ class CustomHandler(socketserver.BaseRequestHandler):
                 data = self.request.recv(2048)     #SERVER_CHUNK
                 if data:
                     self.server.broadcast(self,data)
-                #self.empty_buffers()
         except (ConnectionResetError, EOFError):
-            print("[ERR]")
+            print("[CLD] Client disconnected")
             pass
-    
-    #def empty_buffers(self):
-        #print(self,"-",self.buffer.empty())
-        #while not self.buffer.empty():
-            #print(" ~ Sending data")
-            #self.request.sendall(self.buffer.get())
-    
-    #def schedule(self,data):
-        #print("~ Writing in buffer")
-        #self.buffer.put(data)
 
     def finish(self):
         self.server.remove_client(self)
         self.request.close()
-        #super().finish()
 
 ## FUNCTIONS ##################################################################
 
@@ -104,7 +109,8 @@ def main(key):
 
     server = CustomServer(addr=(SERVER_IP,SERVER_PORT),
                           accptd_ip_list=ip_list,
-                          request_handler_class=CustomHandler)
+                          request_handler_class=CustomHandler,
+                          key = key)
     
     server.serve_forever()
 
