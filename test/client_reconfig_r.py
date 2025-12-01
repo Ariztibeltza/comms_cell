@@ -50,7 +50,7 @@ class Client(socket.socket):
                       frames_per_buffer=self.audio_chunk)
         self.key = key
         self.fernet = Fernet(self.key)
-        self.b_pressed = True
+        self.b_pressed = False
         self.interlock = False
         threading.Thread(target=self.output(),args=())
         threading.Thread(target=self.input(),args=())

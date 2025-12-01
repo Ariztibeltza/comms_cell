@@ -46,11 +46,15 @@ class CustomServer(socketserver.ThreadingTCPServer):
     def broadcast(self,source,data):
         for client in tuple(self.clients):
             if client is not source:
+                #print(sys.getsizeof(data))
                 client.request.send(data)
-        # self.cycles +=1
-        if self.cycles >= self.cycle_threshold:
-            # self.reencrypt()
-            None
+        #self.cycles +=1
+        #if self.cycles >= self.cycle_threshold:
+            #self.reencrypt()
+            #for client in tuple(self.clients):
+                #print("~ Sending")
+                #print(sys.getsizeof(data))
+                #client.request.send(data)
 
     def remove_client(self,client):
         self.clients.remove(client)
@@ -66,7 +70,6 @@ class CustomServer(socketserver.ThreadingTCPServer):
         mssg = self.fernet.encrypt(key)
         self.key = key
         self.fernet = Fernet(self.key)
-        self.broadcast(self,mssg)
 
 class CustomHandler(socketserver.BaseRequestHandler):
 
