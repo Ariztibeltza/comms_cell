@@ -27,7 +27,9 @@ class CustomServer(socketserver.ThreadingTCPServer):
         super().__init__(server_address=addr,
                          RequestHandlerClass=request_handler_class)
         self.accptd_ip_list = accptd_ip_list
-        self.clients = set()
+        self.conn_cycle = 0
+        self.input_clients = set()
+        self.output_clients = set()
         self.key = key
         self.cycle_threshold = random.randint(2000,5000)
         self.cycles = 0
@@ -38,13 +40,19 @@ class CustomServer(socketserver.ThreadingTCPServer):
         # Ensure the client is in the range we are willing to get
         self.log("CLr",f"{client.request.getsockname()[0]}")
         if client.request.getsockname()[0] in self.accptd_ip_list:
-            self.log("CLA","Client accepted")
-            self.clients.add(client)
+            if self.conn_cycle == 0:
+                self.input_clients.add(client)
+                self.conn_cycle = 1
+                self.log("CLA","Input client accepted")
+            elif self.conn_cycle == 1:
+                self.output_clients.add(client)
+                self.conn_cycle = 0
+                self.log("CLA","Output client accepted")
         else:
             self.log("CLR","Client accepted")
     
     def broadcast(self,source,data):
-        for client in tuple(self.clients):
+        for client in tuple(self.output_clients):
             if client is not source:
                 client.request.send(data)
         #self.cycles +=1
@@ -56,7 +64,11 @@ class CustomServer(socketserver.ThreadingTCPServer):
                 #client.request.send(data)
 
     def remove_client(self,client):
-        self.clients.remove(client)
+        if client in self.input_clients:
+            self.input_clients.remove(client)
+        elif client in self.output_clients:
+            self.output_clients.remove(client)
+            
 
     def log(self,code,txt):
         print(f"[{code}] {txt}")
@@ -80,6 +92,7 @@ class CustomHandler(socketserver.BaseRequestHandler):
             while True:
                 data = self.request.recv(2048)     #SERVER_CHUNK
                 if data:
+                    print("~ Reciving")
                     self.server.broadcast(self,data)
         except (ConnectionResetError, EOFError):
             print("[CLD] Client disconnected")

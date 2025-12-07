@@ -2,8 +2,6 @@ import socket
 import pyaudio
 from cryptography.fernet import Fernet
 import sys
-import threading
-import time
 
 ## CONSTANTS ##################################################################
 
@@ -28,13 +26,12 @@ key = b'ueoP3kd6cor-yviC8RwBgqqqkrLUQAhL85R4dQcfsyM='
 
 ## CLASSES ####################################################################
 
-class Client():
+class Client(socket.socket):
 
     def __init__(self,addr,port,key):
-        self.addr = addr
-        self.port = port
-        self.input_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        self.output_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        super().__init__(socket.AF_INET,socket.SOCK_STREAM)
+        self.connect((addr,port))
+        self.log('CLN', f'Connected to {addr}:{port}')
         self.format = pyaudio.paInt16
         self.channels = 1
         self.rate = 44100
@@ -52,62 +49,35 @@ class Client():
                       frames_per_buffer=self.audio_chunk)
         self.key = key
         self.fernet = Fernet(self.key)
-        self.b_pressed = False
-        self.interlock = False
-        self.conn_sockets()        
-        threading.Thread(target=self.input,args=(),daemon=True).start()
-        threading.Thread(target=self.output,args=()).start()
-        
-    def conn_sockets(self):
-        # Set-up the input socket
-        try:
-            self.input_socket.connect((self.addr,self.port))
-            self.log('CLN', f'Connected to {self.addr}:{self.port}')
-        except:
-            self.log('ERR', f'Error in connection')
-        time.sleep(2)
-        try:
-            self.output_socket.connect((self.addr,self.port))
-            self.log('CLN', f'Connected to {self.addr}:{self.port}')
-        except:
-            self.log('ERR', f'Error in connection')
-
+        self.b_pressed = True
+    
     def log(self,code,txt):
         print(f"[{code}] {txt}")
 
-    def input(self):
+    def loop(self):
         while True:
-            data = self.input_socket.recv(self.server_chunk)
-            #if sys.getsizeof(data)<500:
-                #self.interlock = True
-                #print(key)
-                #self.fernet.decrypt(data)
-                #self.key = data
-                #self.fernet = Fernet(key)
-                #self.interlock = False
-            if not data:
-                break
-            elif not self.b_pressed and data:
+            if self.b_pressed:
+                try:
+                    m_data = self.microstream.read(self.audio_chunk)
+                    enc_data = self.fernet.encrypt(m_data)
+                    self.sendall(enc_data)
+                except:
+                    self.log("ERR","Error sending data")
+            else:
+                data = self.recv(self.server_chunk)
+                if not data:
+                    break
                 try:
                     dec_data = self.fernet.decrypt(data)
                     self.audiostream.write(dec_data)
                 except:
                     self.log("ERR", "Error decrypting")
 
-    def output(self):
-        while True:
-            if self.b_pressed and not self.interlock:
-                try:
-                    m_data = self.microstream.read(self.audio_chunk)
-                    enc_data = self.fernet.encrypt(m_data)
-                    self.output_socket.send(enc_data)
-                except:
-                    self.log("ERR", "Error sending data")
-
 ## FUNCTIONS ##################################################################
 
 def main():
     client = Client(addr=SERVER_IP,port=SERVER_PORT,key = key)
+    client.loop()
 
 ## MAIN #######################################################################
 
