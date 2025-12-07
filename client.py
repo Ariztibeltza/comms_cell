@@ -58,7 +58,8 @@ class Client(socket.socket):
         while True:
             if self.b_pressed:
                 try:
-                    m_data = self.microstream.read(self.audio_chunk)
+                    m_data = self.microstream.read(self.audio_chunk,
+                                                   exception_on_overflow=False)
                     enc_data = self.fernet.encrypt(m_data)
                     self.sendall(enc_data)
                 except:

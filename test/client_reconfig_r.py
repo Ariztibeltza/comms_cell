@@ -71,11 +71,11 @@ class Client(socket.socket):
                 #self.interlock = False
             if not data:
                 break
-            elif not self.b_pressed and data:
+            if not self.b_pressed:
                 try:
                     dec_data = self.fernet.decrypt(data)
-                    print("yes")
-                    self.audiostream.write(dec_data)
+                    self.audiostream.write(dec_data,
+                                           exception_on_underflow=False)
                 except:
                     self.log("ERR", "Error decrypting")
 
@@ -83,7 +83,8 @@ class Client(socket.socket):
         while True:
             if self.b_pressed and not self.interlock:
                 try:
-                    m_data = self.microstream.read(self.audio_chunk)
+                    m_data = self.microstream.read(self.audio_chunk,
+                                                   exception_on_overflow=False)
                     enc_data = self.fernet.encrypt(m_data)
                     self.send(enc_data)
                 except:
