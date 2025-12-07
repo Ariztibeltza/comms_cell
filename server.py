@@ -46,7 +46,7 @@ class CustomServer(socketserver.ThreadingTCPServer):
     def broadcast(self,source,data):
         for client in tuple(self.clients):
             if client is not source:
-                client.request.send(data)
+                client.request.sendall(data)
         #self.cycles +=1
         #if self.cycles >= self.cycle_threshold:
             #self.reencrypt()

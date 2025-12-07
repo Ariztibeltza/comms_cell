@@ -23,7 +23,7 @@ BUTTON_PRESSED = True
 ## VARIABLES ##################################################################
 
 # Cryptography
-key = b'ueoP3kd6cor-yviC8RwBgqqqkrLUQAhL85R4dQcfsyM='
+f_key = b'ueoP3kd6cor-yviC8RwBgqqqkrLUQAhL85R4dQcfsyM='
 
 ## CLASSES ####################################################################
 
@@ -51,7 +51,6 @@ class Client(socket.socket):
         self.key = key
         self.fernet = Fernet(self.key)
         self.b_pressed = True
-        self.interlock = False
         threading.Thread(target=self.input,args=(),daemon=True).start()
         threading.Thread(target=self.output,args=()).start()
         
@@ -81,19 +80,19 @@ class Client(socket.socket):
 
     def output(self):
         while True:
-            if self.b_pressed and not self.interlock:
+            if self.b_pressed:
                 try:
                     m_data = self.microstream.read(self.audio_chunk,
                                                    exception_on_overflow=False)
                     enc_data = self.fernet.encrypt(m_data)
-                    self.send(enc_data)
+                    self.sendall(enc_data)
                 except:
                     self.log("ERR", "Error sending data") 
 
 ## FUNCTIONS ##################################################################
 
 def main():
-    client = Client(addr=SERVER_IP,port=SERVER_PORT,key = key)
+    client = Client(addr=SERVER_IP,port=SERVER_PORT,key = f_key)
 
 ## MAIN #######################################################################
 
