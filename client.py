@@ -65,7 +65,7 @@ class Client():
             self.log('CLN', f'Connected to {self.addr}:{self.port}')
         except:
             self.log('ERR', f'Error in connection')
-        time.sleep(2)
+        time.sleep(1)
         try:
             self.output_socket.connect((self.addr,self.port))
             self.log('CLN', f'Connected to {self.addr}:{self.port}')
