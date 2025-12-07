@@ -35,9 +35,9 @@ class Client(socket.socket):
         self.log('CLN', f'Connected to {addr}:{port}')
         self.format = pyaudio.paInt16
         self.channels = 1
-        self.rate = 44100
-        self.audio_chunk = 512
-        self.server_chunk = 2048
+        self.rate = 20000 #44100
+        self.audio_chunk = 256 #512
+        self.server_chunk = 1024 #2048
         self.microstream = pyaudio.PyAudio().open(format=self.format,
                       channels=self.channels,
                       rate=self.rate,
@@ -51,7 +51,6 @@ class Client(socket.socket):
         self.key = key
         self.fernet = Fernet(self.key)
         self.b_pressed = False
-        self.interlock = False
         threading.Thread(target=self.input,args=(),daemon=True).start()
         threading.Thread(target=self.output,args=()).start()
         
@@ -71,24 +70,27 @@ class Client(socket.socket):
                 #self.interlock = False
             if not data:
                 break
-            if not self.b_pressed:
-                try:
-                    dec_data = self.fernet.decrypt(data)
-                    self.audiostream.write(dec_data,
-                                           exception_on_underflow=False)
-                except:
-                    self.log("ERR", "Error decrypting")
+            elif not self.b_pressed and data:
+                self.audiostream.write(data,
+                                        exception_on_underflow=False)
+                #try:
+                    #dec_data = self.fernet.decrypt(data)
+                    #self.audiostream.write(dec_data,
+                                           #exception_on_underflow=False)
+                #except:
+                    #self.log("ERR", "Error decrypting")
 
     def output(self):
         while True:
-            if self.b_pressed and not self.interlock:
+            if self.b_pressed:
                 try:
                     m_data = self.microstream.read(self.audio_chunk,
                                                    exception_on_overflow=False)
-                    enc_data = self.fernet.encrypt(m_data)
-                    self.sendall(enc_data)
+                    #enc_data = self.fernet.encrypt(m_data)
+                    #self.sendall(enc_data)
+                    self.sendall(m_data)
                 except:
-                    self.log("ERR", "Error sending data")
+                    self.log("ERR", "Error sending data") 
 
 ## FUNCTIONS ##################################################################
 
