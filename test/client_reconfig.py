@@ -52,8 +52,9 @@ class Client(socket.socket):
         self.fernet = Fernet(self.key)
         self.b_pressed = True
         self.interlock = False
-        threading.Thread(target=self.output(),args=())
-        threading.Thread(target=self.input(),args=())
+        threading.Thread(target=self.input,args=(),daemon=True).start()
+        threading.Thread(target=self.output,args=()).start()
+        
     
     def log(self,code,txt):
         print(f"[{code}] {txt}")
@@ -61,14 +62,16 @@ class Client(socket.socket):
     def input(self):
         while True:
             data = self.recv(self.server_chunk)
-            if sys.getsizeof(data)<500:
-                self.interlock = True
-                print(key)
-                self.fernet.decrypt(data)
-                self.key = data
-                self.fernet = Fernet(key)
-                self.interlock = False
-            elif not self.b_pressed:
+            #if sys.getsizeof(data)<500:
+                #self.interlock = True
+                #print(key)
+                #self.fernet.decrypt(data)
+                #self.key = data
+                #self.fernet = Fernet(key)
+                #self.interlock = False
+            if not data:
+                break
+            elif not self.b_pressed and data:
                 try:
                     dec_data = self.fernet.decrypt(data)
                     self.audiostream.write(dec_data)
@@ -81,39 +84,14 @@ class Client(socket.socket):
                 try:
                     m_data = self.microstream.read(self.audio_chunk)
                     enc_data = self.fernet.encrypt(m_data)
-                    self.sendall(enc_data)
+                    self.send(enc_data)
                 except:
                     self.log("ERR", "Error sending data") 
-
-    def loop(self):
-        while True:
-            data = self.recv(self.server_chunk) # Bloquea la recepcion por que espera mensaje
-            if not data:
-                if self.b_pressed:
-                    try:
-                        m_data = self.microstream.read(self.audio_chunk)
-                        enc_data = self.fernet.encrypt(m_data)
-                        self.sendall(enc_data)
-                    except:
-                        self.log("ERR", "Error sending data")
-            else:
-                if sys.getsizeof(data)<500:
-                    print("Key")
-                    self.fernet.decrypt(data)
-                    self.key=data
-                    self.fernet = Fernet(self.key)
-                else:
-                    try:
-                        dec_data = self.fernet.decrypt(data)
-                        self.audiostream.write(dec_data)
-                    except:
-                        self.log("ERR", "Error decrypting")
 
 ## FUNCTIONS ##################################################################
 
 def main():
     client = Client(addr=SERVER_IP,port=SERVER_PORT,key = key)
-    client.loop()
 
 ## MAIN #######################################################################
 

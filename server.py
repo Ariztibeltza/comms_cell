@@ -46,7 +46,6 @@ class CustomServer(socketserver.ThreadingTCPServer):
     def broadcast(self,source,data):
         for client in tuple(self.clients):
             if client is not source:
-                #print(sys.getsizeof(data))
                 client.request.send(data)
         #self.cycles +=1
         #if self.cycles >= self.cycle_threshold:

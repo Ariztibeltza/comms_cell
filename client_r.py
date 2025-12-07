@@ -46,9 +46,6 @@ class Client(socket.socket):
     
     def log(self,code,txt):
         print(f"[{code}] {txt}")
-    
-    def feedback(self):
-        self.log("ERR","Sending error")
 
     def loop(self):
         while True:
@@ -58,7 +55,7 @@ class Client(socket.socket):
                     enc_data = self.fernet.encrypt(m_data)
                     self.sendall(enc_data)
                 except:
-                    self.feedback()
+                    self.log("ERR", "Sending error")
             else:
                 data = self.recv(self.server_chunk)
                 if not data:

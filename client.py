@@ -62,7 +62,7 @@ class Client(socket.socket):
                     enc_data = self.fernet.encrypt(m_data)
                     self.sendall(enc_data)
                 except:
-                    self.feedback()
+                    self.log("ERR","Error sending data")
             else:
                 data = self.recv(self.server_chunk)
                 if not data:
