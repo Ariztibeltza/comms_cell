@@ -89,7 +89,8 @@ class Client(socket.socket):
                                                    exception_on_overflow=False)
                     #enc_data = self.fernet.encrypt(m_data)
                     #self.sendall(enc_data)
-                    self.sendall(m_data)
+                    #self.sendall(m_data)
+                    print(self.send(m_data))
                 except:
                     self.log("ERR", "Error sending data") 
 

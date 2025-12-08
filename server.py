@@ -80,6 +80,7 @@ class CustomHandler(socketserver.BaseRequestHandler):
             while True:
                 data = self.request.recv(2048)     #SERVER_CHUNK
                 if data:
+                    print(sys.getsizeof(data))
                     self.server.broadcast(self,data)
         except (ConnectionResetError, EOFError):
             print("[CLD] Client disconnected")
